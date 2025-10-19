@@ -1,0 +1,443 @@
+import time
+import json
+import os
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import random
+
+class MangaParser:
+    def __init__(self, headless=False):
+        self.chrome_options = Options()
+        
+        if headless:
+            self.chrome_options.add_argument("--headless")
+        
+        self.chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        self.chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        self.chrome_options.add_experimental_option('useAutomationExtension', False)
+        self.chrome_options.add_argument("--disable-dev-shm-usage")
+        self.chrome_options.add_argument("--no-sandbox")
+        self.chrome_options.add_argument("--window-size=1920,1080")
+        
+        self.driver = None
+        self.cookies_file = "manga_cookies.json"
+        self.comments_count = 0
+        self.max_comments_per_session = 13
+
+    def setup_driver(self):
+        self.driver = webdriver.Chrome(options=self.chrome_options)
+        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        self.load_cookies()
+
+    def save_cookies(self): 
+        if self.driver:
+            cookies = self.driver.get_cookies()
+            with open(self.cookies_file, 'w') as f:
+                json.dump(cookies, f)
+
+    def load_cookies(self):
+        if os.path.exists(self.cookies_file):
+            try:
+                self.driver.get("https://mangabuff.ru")
+                with open(self.cookies_file, 'r') as f:
+                    cookies = json.load(f)
+                for cookie in cookies:
+                    self.driver.add_cookie(cookie)
+                time.sleep(2)
+            except Exception as e:
+                print(f"Error loading cookies: {e}")
+
+    def wait_for_page_load(self, timeout=10):
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda driver: driver.execute_script('return document.readyState') == 'complete'
+            )
+        except TimeoutException:
+            pass
+
+    def smooth_scroll(self, duration=30):
+        start_time = time.time()
+        total_height = self.driver.execute_script("return document.body.scrollHeight")
+        viewport_height = self.driver.execute_script("return window.innerHeight")
+        
+        scroll_iteration = 0
+        
+        while time.time() - start_time < duration:
+            scroll_iteration += 1
+            
+            current_position = self.driver.execute_script("return window.pageYOffset;")
+            scroll_down_distance = min(total_height - viewport_height - current_position, random.randint(1000, 1300))
+            
+            if scroll_down_distance > 0:
+                self.driver.execute_script(f"""
+                    window.scrollBy({{
+                        top: {scroll_down_distance},
+                        left: 0,
+                        behavior: 'smooth'
+                    }});
+                """)
+                time.sleep(random.uniform(1.5, 3.0))
+            
+            if scroll_iteration % 2 == 0:
+                self.enhanced_check_buttons()
+            
+            if random.random() < 0:
+                scroll_up_distance = random.randint(100, 300)
+                self.driver.execute_script(f"""
+                    window.scrollBy({{
+                        top: -{scroll_up_distance},
+                        left: 0,
+                        behavior: 'smooth'
+                    }});
+                """)
+                time.sleep(random.uniform(0.5, 1.5))
+            
+            if random.random() < 0.2:
+                time.sleep(random.uniform(2, 4))
+            
+            new_total_height = self.driver.execute_script("return document.body.scrollHeight")
+            if new_total_height != total_height:
+                total_height = new_total_height
+
+    def enhanced_check_buttons(self):
+        self.check_event_ball_buttons()
+        self.check_event_bag_buttons()
+        self.check_halloween_buttons()
+
+    def check_event_ball_buttons(self):
+        try:
+            selectors = [
+                "[class*='event-gift-ball']",
+                "div[class*='event-gift-ball']"
+            ]
+            
+            for selector in selectors:
+                try:
+                    buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for button in buttons:
+                        try:
+                            class_name = button.get_attribute('class')
+                            if 'event-gift-ball--collected' in class_name:
+                                continue
+                                
+                            self.driver.execute_script("""
+                                var element = arguments[0];
+                                element.style.display = 'block';
+                                element.style.visibility = 'visible';
+                                element.style.opacity = '1';
+                                element.style.pointerEvents = 'auto';
+                            """, button)
+                            
+                            script = """
+                            var element = arguments[0];
+                            
+                            function triggerEvent(element, eventType) {
+                                var event = new MouseEvent(eventType, {
+                                    'view': window,
+                                    'bubbles': true,
+                                    'cancelable': true,
+                                    'clientX': element.getBoundingClientRect().left + element.offsetWidth / 2,
+                                    'clientY': element.getBoundingClientRect().top + element.offsetHeight / 2,
+                                    'button': 0,
+                                    'buttons': 1
+                                });
+                                element.dispatchEvent(event);
+                            }
+                            
+                            triggerEvent(element, 'mouseover');
+                            triggerEvent(element, 'mousedown');
+                            triggerEvent(element, 'mouseup');
+                            triggerEvent(element, 'click');
+                            
+                            if (window.jQuery) {
+                                var $elem = jQuery(element);
+                                if ($elem) {
+                                    $elem.trigger('mouseenter');
+                                    $elem.trigger('mousedown');
+                                    $elem.trigger('mouseup');
+                                    $elem.trigger('click');
+                                }
+                            }
+                            
+                            return 'Event triggered';
+                            """
+                            
+                            self.driver.execute_script(script, button)
+                            time.sleep(2)
+                            
+                        except Exception as e:
+                            pass
+                            
+                except Exception as e:
+                    continue
+                    
+        except Exception as e:
+            pass
+
+    def check_event_bag_buttons(self):
+        try:
+            selectors = [
+                "[class*='event-bag']",
+                "div[class*='event-bag']",
+                ".event-bag"
+            ]
+            
+            for selector in selectors:
+                try:
+                    bags = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    
+                    for bag in bags:
+                        try:
+                            class_name = bag.get_attribute('class')
+                            is_displayed = bag.is_displayed()
+                            
+                            for click_count in range(10):
+                                try:
+                                    script = """
+                                    var element = arguments[0];
+                                    var clickCount = arguments[1];
+                                    
+                                    var event = new MouseEvent('click', {
+                                        view: window,
+                                        bubbles: true,
+                                        cancelable: true,
+                                        clientX: element.getBoundingClientRect().left + element.offsetWidth / 2,
+                                        clientY: element.getBoundingClientRect().top + element.offsetHeight / 2,
+                                        button: 0
+                                    });
+                                    
+                                    element.dispatchEvent(event);
+                                    
+                                    if (window.jQuery) {
+                                        jQuery(element).trigger('click');
+                                    }
+                                    
+                                    return 'Click ' + clickCount + ' triggered';
+                                    """
+                                    
+                                    self.driver.execute_script(script, bag, click_count + 1)
+                                    time.sleep(0.3)
+                                    
+                                except Exception as e:
+                                    pass
+                            
+                            time.sleep(2)
+                            break
+                            
+                        except Exception as e:
+                            pass
+                            
+                except Exception as e:
+                    continue
+                    
+        except Exception as e:
+            pass
+
+    def check_halloween_buttons(self):
+        try:
+            halloween_selectors = [
+                "[class*='menu__item--halloween']",
+                "[href*='event']",
+                "[href*='halloween']",
+                "a[href='/event/pack']",
+                "a[href='/halloween/game']"
+            ]
+            
+            for selector in halloween_selectors:
+                try:
+                    halloween_buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    
+                    for button in halloween_buttons:
+                        if button.is_displayed() and button.is_enabled():
+                            try:
+                                self.driver.execute_script("arguments[0].click();", button)
+                                time.sleep(3)
+                                self.wait_for_page_load()
+                                
+                                if "mangabuff.ru" in self.driver.current_url and "/manga/" not in self.driver.current_url:
+                                    self.driver.back()
+                                    time.sleep(2)
+                                    self.wait_for_page_load()
+                                
+                                return True
+                                
+                            except Exception as e:
+                                pass
+                except:
+                    continue
+                    
+        except Exception as e:
+            pass
+
+    def post_comment(self, comment_text="спаисбо за главу"):
+        if self.comments_count >= self.max_comments_per_session:
+            return False
+
+        try:
+            comment_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-menu__item--comment"))
+            )
+            comment_button.click()
+            time.sleep(2)
+
+            spoiler_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__actions-btn--spoiler"))
+            )
+            spoiler_button.click()
+            time.sleep(1)
+
+            comment_textarea = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__send-form textarea"))
+            )
+            comment_textarea.clear()
+            comment_textarea.send_keys(comment_text)
+            time.sleep(1)
+
+            send_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__send-btn"))
+            )
+            send_button.click()
+            time.sleep(2)
+
+            close_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-comments__close"))
+            )
+            close_button.click()
+            time.sleep(1)
+
+            self.comments_count += 1
+            return True
+
+        except Exception as e:
+            return False
+
+    def go_to_mine(self):
+        try:
+            current_url = self.driver.current_url
+            
+            profile_dropdown = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".header-profile.dropdown__trigger"))
+            )
+            profile_dropdown.click()
+            time.sleep(2)
+
+            mine_link = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='/mine']"))
+            )
+            mine_link.click()
+            time.sleep(3)
+            self.wait_for_page_load()
+
+            hits_left = self.check_mine_hits()
+            while hits_left > 0:
+                self.click_mine_button()
+                time.sleep(0.5)
+                hits_left = self.check_mine_hits()
+
+            self.driver.get(current_url)
+            time.sleep(3)
+            self.wait_for_page_load()
+            return True
+
+        except Exception as e:
+            return False
+
+    def check_mine_hits(self):
+        try:
+            hits_element = self.driver.find_element(By.CSS_SELECTOR, ".main-mine__game-hits-left")
+            hits_text = hits_element.text.strip()
+            return int(hits_text)
+        except:
+            return 0
+
+    def click_mine_button(self):
+        try:
+            mine_button = self.driver.find_element(By.CSS_SELECTOR, ".main-mine__game-tap")
+            mine_button.click()
+            return True
+        except:
+            return False
+
+    def go_to_next_page(self):
+        try:
+            next_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader__footer a.button--primary:last-child"))
+            )
+            
+            if "След." in next_button.text:
+                next_url = next_button.get_attribute("href")
+                next_button.click()
+                return True
+            else:
+                return False
+                
+        except Exception as e:
+            return False
+
+    def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу"):
+        try:
+            self.setup_driver()
+            current_url = start_url
+            
+            while True:
+                self.driver.get(current_url)
+                self.wait_for_page_load()
+                time.sleep(3)
+                
+                if self.comments_count < self.max_comments_per_session:
+                    self.post_comment(comment_text)
+                else:
+                    self.smooth_scroll(scroll_duration)
+                    self.go_to_mine()
+                
+                self.smooth_scroll(scroll_duration)
+                
+                if not self.go_to_next_page():
+                    break
+                
+                current_url = self.driver.current_url
+                self.save_cookies()
+                time.sleep(3)
+                
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            if self.driver:
+                self.save_cookies()
+
+    def login_only(self):
+        self.setup_driver()
+        self.driver.get("https://mangabuff.ru")
+        input("Press Enter after login...")
+        self.save_cookies()
+        self.driver.quit()
+
+def main():
+    print("1 - Login only")
+    print("2 - Full parsing")
+    
+    choice = input("Enter mode (1 or 2): ").strip()
+    
+    parser = MangaParser(headless=False)
+    
+    if choice == "1":
+        parser.login_only()
+    elif choice == "2":
+        START_URL = "https://mangabuff.ru/manga/pik-boevyh-iskusstv/1/"
+        SCROLL_DURATION = 30
+        COMMENT_TEXT = "спаисбо за главу"
+        
+        parser.parse_manga(
+            start_url=START_URL,
+            scroll_duration=SCROLL_DURATION,
+            comment_text=COMMENT_TEXT
+        )
+    else:
+        print("Invalid choice")
+
+if __name__ == "__main__":
+    main()
