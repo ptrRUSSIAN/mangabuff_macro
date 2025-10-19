@@ -70,7 +70,7 @@ class MangaParser:
             scroll_iteration += 1
             
             current_position = self.driver.execute_script("return window.pageYOffset;")
-            scroll_down_distance = min(total_height - viewport_height - current_position, random.randint(1000, 1300))
+            scroll_down_distance = min(total_height - viewport_height - current_position, random.randint(400, 800))
             
             if scroll_down_distance > 0:
                 self.driver.execute_script(f"""
@@ -278,6 +278,9 @@ class MangaParser:
             return False
 
         try:
+            self.driver.refresh()
+            time.sleep(3)
+            self.wait_for_page_load()
             comment_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-menu__item--comment"))
             )
@@ -427,8 +430,8 @@ def main():
     if choice == "1":
         parser.login_only()
     elif choice == "2":
-        START_URL = "https://mangabuff.ru/manga/pik-boevyh-iskusstv/1/"
-        SCROLL_DURATION = 30
+        START_URL = "https://mangabuff.ru/manga/pik-boevyh-iskusstv/1/200"
+        SCROLL_DURATION = 60
         COMMENT_TEXT = "спаисбо за главу"
         
         parser.parse_manga(
