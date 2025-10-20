@@ -51,27 +51,36 @@ class MangaParser:
             except Exception as e:
                 print(f"Error loading cookies: {e}")
 
-    def wait_for_page_load(self, timeout=10):
-        try:
-            WebDriverWait(self.driver, timeout).until(
-                lambda driver: driver.execute_script('return document.readyState') == 'complete'
-            )
-        except TimeoutException:
-            pass
+    def wait_for_page_load(self, timeout=5):
+        time.sleep(timeout)
 
-    def smooth_scroll(self, duration=30):
+    def smooth_scroll(self, duration=30, after_scroll_time=15):
         start_time = time.time()
-        total_height = self.driver.execute_script("return document.body.scrollHeight")
         viewport_height = self.driver.execute_script("return window.innerHeight")
-        
+        step_time = 2.0
+
         scroll_iteration = 0
-        
+
         while time.time() - start_time < duration:
             scroll_iteration += 1
-            
+
             current_position = self.driver.execute_script("return window.pageYOffset;")
-            scroll_down_distance = min(total_height - viewport_height - current_position, random.randint(400, 800))
-            
+            current_total_height = self.driver.execute_script("return document.body.scrollHeight")
+            remaining_height = current_total_height - current_position - viewport_height
+
+            if remaining_height <= 0:
+                break
+
+            time_elapsed = time.time() - start_time
+            time_left = duration - time_elapsed
+
+            if time_left <= 0:
+                break
+
+            current_pixels_per_second = remaining_height / time_left if time_left > 0 else remaining_height
+            scroll_down_distance = current_pixels_per_second * step_time
+            scroll_down_distance = max(100, min(scroll_down_distance, 800))
+
             if scroll_down_distance > 0:
                 self.driver.execute_script(f"""
                     window.scrollBy({{
@@ -81,11 +90,11 @@ class MangaParser:
                     }});
                 """)
                 time.sleep(random.uniform(1.5, 3.0))
-            
+
             if scroll_iteration % 2 == 0:
                 self.enhanced_check_buttons()
-            
-            if random.random() < 0:
+
+            if random.random() < 0.1:
                 scroll_up_distance = random.randint(100, 300)
                 self.driver.execute_script(f"""
                     window.scrollBy({{
@@ -95,19 +104,21 @@ class MangaParser:
                     }});
                 """)
                 time.sleep(random.uniform(0.5, 1.5))
-            
-            if random.random() < 0.2:
+
+            if random.random() < 0.1:
                 time.sleep(random.uniform(2, 4))
-            
-            new_total_height = self.driver.execute_script("return document.body.scrollHeight")
-            if new_total_height != total_height:
-                total_height = new_total_height
+
+        while time.time() - start_time < duration + after_scroll_time:
+            time.sleep(1)
+            self.enhanced_check_buttons()
+
+        
 
     def enhanced_check_buttons(self):
         self.check_event_ball_buttons()
         self.check_event_bag_buttons()
         self.check_halloween_buttons()
-
+    
     def check_event_ball_buttons(self):
         try:
             selectors = [
@@ -381,10 +392,11 @@ class MangaParser:
         except Exception as e:
             return False
 
-    def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу"):
+    def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу",after_scroll_time=15):
         try:
             self.setup_driver()
             current_url = start_url
+            mine_flag = False
             
             while True:
                 self.driver.get(current_url)
@@ -393,11 +405,12 @@ class MangaParser:
                 
                 if self.comments_count < self.max_comments_per_session:
                     self.post_comment(comment_text)
+                elif  not mine_flag:
+                    mine_flag = self.go_to_mine()
                 else:
-                    self.smooth_scroll(scroll_duration)
-                    self.go_to_mine()
+                    self.smooth_scroll(scroll_duration,after_scroll_time)
                 
-                self.smooth_scroll(scroll_duration)
+                self.smooth_scroll(scroll_duration,after_scroll_time)
                 
                 if not self.go_to_next_page():
                     break
@@ -437,7 +450,8 @@ def main():
         parser.parse_manga(
             start_url=START_URL,
             scroll_duration=SCROLL_DURATION,
-            comment_text=COMMENT_TEXT
+            comment_text=COMMENT_TEXT,
+            after_scroll_time=15
         )
     else:
         print("Invalid choice")
