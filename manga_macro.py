@@ -367,6 +367,7 @@ class MangaParser:
             while True:
                 new_day = date.today()                
                 if current_day != new_day:
+                    print('new day')
                     mine_flag = False
                     self.comments_count = 0
                 current_day = new_day
@@ -382,7 +383,9 @@ class MangaParser:
                 elif  not mine_flag and mine_needed:   
                     mine_flag = self.go_to_mine()
                 else:
-                    self.smooth_scroll(scroll_duration,after_scroll_time)
+                    pass
+                
+                self.smooth_scroll(scroll_duration,after_scroll_time)
                 
                 next_page_success = False
                 a = 3
@@ -402,6 +405,7 @@ class MangaParser:
                 time.sleep(3)
 
                 if current_day != new_day:
+                    print('new day')
                     mine_flag = False
                     self.comments_count = 0
                 current_day = new_day
