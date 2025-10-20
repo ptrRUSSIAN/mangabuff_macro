@@ -71,7 +71,7 @@ class MangaParser:
             scroll_iteration += 1
 
             current_position = self.driver.execute_script("return window.pageYOffset;")
-            current_total_height = self.driver.execute_script("return document.body.scrollHeight")
+            current_total_height = self.driver.execute_script("return document.body.scrollHeight") - 500
             remaining_height = current_total_height - current_position - viewport_height
 
             if remaining_height <= 0:

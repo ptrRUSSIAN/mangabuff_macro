@@ -1,4 +1,4 @@
-start_url = 'https://mangabuff.ru/manga/pik-boevyh-iskusstv/1/200'
+start_url = 'https://mangabuff.ru/manga/pik-boevyh-iskusstv/1/300'
 # с этой главы начнется просмотр манги
 scroll_time = 60
 # за такое время страницу докрутит до самого низа
@@ -10,7 +10,7 @@ comments_ready = 0
 # столько комментариев уже написано
 comments_need = 13
 # столько комментариев максимум
-mine_needed = True
+mine_needed = False
 # нужна ли шахта
-comment_on = True
+comment_on = False
 # писать ли комментарии

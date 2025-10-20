@@ -25,6 +25,8 @@ venv/Scripts/activate
 
 pip install selenium
 
+git clone https://github.com/ptrRUSSIAN/mangabuff_macro.git
+
 должна скачаться библиотека
 
 5. запустите программу
