@@ -413,10 +413,21 @@ class MangaParser:
                     self.smooth_scroll(scroll_duration,after_scroll_time)
                 
                 self.smooth_scroll(scroll_duration,after_scroll_time)
-                
-                if not self.go_to_next_page():
+
+                next_page_success = False
+                a = 3
+                for attempt in range(a):
+                    if self.go_to_next_page():
+                        self.driver.refresh()
+                        time.sleep(3)
+                        next_page_success = True
+                        break
+                    print(f"Не удалось открыть следующую страницу, попытка {attempt + 1}/{a}")
+                    time.sleep(2)
+
+                if not next_page_success:
                     break
-                
+
                 current_url = self.driver.current_url
                 time.sleep(3)
                 
