@@ -8,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import random
+from config import start_url, scroll_time, comment_on, comment_text, comments_need,comments_ready,mine_needed, after_scroll_time
 
 class MangaParser:
     def __init__(self, headless=False):
@@ -25,8 +26,8 @@ class MangaParser:
         
         self.driver = None
         self.cookies_file = "manga_cookies.json"
-        self.comments_count = 0
-        self.max_comments_per_session = 3
+        self.comments_count = comments_ready
+        self.max_comments_per_session = comments_need
 
     def setup_driver(self):
         self.driver = webdriver.Chrome(options=self.chrome_options)
@@ -404,9 +405,9 @@ class MangaParser:
                 self.wait_for_page_load()
                 time.sleep(3)
                 
-                if self.comments_count < self.max_comments_per_session:
+                if self.comments_count < self.max_comments_per_session and comment_on:
                     self.post_comment(comment_text)
-                elif  not mine_flag:
+                elif  not mine_flag and mine_needed:   
                     mine_flag = self.go_to_mine()
                 else:
                     self.smooth_scroll(scroll_duration,after_scroll_time)
@@ -432,6 +433,7 @@ class MangaParser:
         self.driver.quit()
 
 def main():
+
     print("1 - Login only")
     print("2 - Full parsing")
     
@@ -442,15 +444,15 @@ def main():
     if choice == "1":
         parser.login_only()
     elif choice == "2":
-        START_URL = "https://mangabuff.ru/manga/pik-boevyh-iskusstv/1/200"
-        SCROLL_DURATION = 60
-        COMMENT_TEXT = "спаисбо за главу"
+        START_URL = start_url
+        SCROLL_DURATION = scroll_time
+        COMMENT_TEXT = comment_text
         
         parser.parse_manga(
             start_url=START_URL,
             scroll_duration=SCROLL_DURATION,
             comment_text=COMMENT_TEXT,
-            after_scroll_time=15
+            after_scroll_time=after_scroll_time
         )
     else:
         print("Invalid choice")
