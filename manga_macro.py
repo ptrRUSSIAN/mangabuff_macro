@@ -9,7 +9,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import random
 from config import start_url, scroll_time, comment_on, comment_text, comments_need,comments_ready,mine_needed, after_scroll_time
-
+from datetime import date, datetime
 class MangaParser:
     def __init__(self, headless=False):
         self.chrome_options = Options()
@@ -60,7 +60,7 @@ class MangaParser:
         time.sleep(timeout)
         print('Страница загружена')
 
-    def smooth_scroll(self, duration=30, after_scroll_time=15):
+    def smooth_scroll(self, duration, after_scroll_time=15):
         start_time = time.time()
         viewport_height = self.driver.execute_script("return window.innerHeight")
         step_time = 2.0
@@ -357,12 +357,22 @@ class MangaParser:
             return False
 
     def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу",after_scroll_time=15):
+
         try:
             self.setup_driver()
             current_url = start_url
             mine_flag = False
-            
+            current_day = date.today()                
+
             while True:
+                new_day = date.today()                
+                if current_day != new_day:
+                    mine_flag = False
+                    self.comments_count = 0
+                current_day = new_day
+
+                print('Время открытия главы '+ datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
                 self.driver.get(current_url)
                 self.wait_for_page_load()
                 time.sleep(3)
@@ -374,8 +384,6 @@ class MangaParser:
                 else:
                     self.smooth_scroll(scroll_duration,after_scroll_time)
                 
-                self.smooth_scroll(scroll_duration,after_scroll_time)
-
                 next_page_success = False
                 a = 3
                 for attempt in range(a):
@@ -392,7 +400,12 @@ class MangaParser:
 
                 current_url = self.driver.current_url
                 time.sleep(3)
-                
+
+                if current_day != new_day:
+                    mine_flag = False
+                    self.comments_count = 0
+                current_day = new_day
+
         except Exception as e:
             print(f"Error: {e}")
         finally:
