@@ -105,7 +105,6 @@ class MangaParser:
     def enhanced_check_buttons(self):
         self.check_event_ball_buttons()
         self.check_event_bag_buttons()
-        self.check_halloween_buttons()
     
     def check_event_ball_buttons(self):
         try:
@@ -236,43 +235,6 @@ class MangaParser:
                     
         except Exception as e:
             print('bag error')
-            pass
-
-    def check_halloween_buttons(self):
-        try:
-            halloween_selectors = [
-                "[class*='menu__item--halloween']",
-                "[href*='event']",
-                "[href*='halloween']",
-                "a[href='/event/pack']",
-                "a[href='/halloween/game']"
-            ]
-            
-            for selector in halloween_selectors:
-                try:
-                    halloween_buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    
-                    for button in halloween_buttons:
-                        if button.is_displayed() and button.is_enabled():
-                            try:
-                                self.driver.execute_script("arguments[0].click();", button)
-                                time.sleep(3)
-                                self.wait_for_page_load()
-                                
-                                if "mangabuff.ru" in self.driver.current_url and "/manga/" not in self.driver.current_url:
-                                    self.driver.back()
-                                    time.sleep(2)
-                                    self.wait_for_page_load()
-                                
-                                return True
-                                
-                            except Exception as e:
-                                pass
-                except:
-                    continue
-                    
-        except Exception as e:
-            print('holloween button error')
             pass
 
     def post_comment(self, comment_text="спаисбо за главу"):
