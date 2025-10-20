@@ -26,7 +26,7 @@ class MangaParser:
         self.driver = None
         self.cookies_file = "manga_cookies.json"
         self.comments_count = 0
-        self.max_comments_per_session = 13
+        self.max_comments_per_session = 3
 
     def setup_driver(self):
         self.driver = webdriver.Chrome(options=self.chrome_options)
@@ -38,8 +38,10 @@ class MangaParser:
             cookies = self.driver.get_cookies()
             with open(self.cookies_file, 'w') as f:
                 json.dump(cookies, f)
+        print('Куки файлы сохранены')
 
     def load_cookies(self):
+        print('Выгружаю куки фйлы...')
         if os.path.exists(self.cookies_file):
             try:
                 self.driver.get("https://mangabuff.ru")
@@ -50,9 +52,12 @@ class MangaParser:
                 time.sleep(2)
             except Exception as e:
                 print(f"Error loading cookies: {e}")
+        print('Куки файлы загружены')
 
     def wait_for_page_load(self, timeout=5):
+        print(f'Жду {timeout} сукунд для загрузки страницы')
         time.sleep(timeout)
+        print('Страница загружена')
 
     def smooth_scroll(self, duration=30, after_scroll_time=15):
         start_time = time.time()
@@ -60,7 +65,7 @@ class MangaParser:
         step_time = 2.0
 
         scroll_iteration = 0
-
+        print(f'Скролю страницу {duration} секунд')
         while time.time() - start_time < duration:
             scroll_iteration += 1
 
@@ -89,30 +94,12 @@ class MangaParser:
                         behavior: 'smooth'
                     }});
                 """)
-                time.sleep(random.uniform(1.5, 3.0))
-
-            if scroll_iteration % 2 == 0:
-                self.enhanced_check_buttons()
-
-            if random.random() < 0.1:
-                scroll_up_distance = random.randint(100, 300)
-                self.driver.execute_script(f"""
-                    window.scrollBy({{
-                        top: -{scroll_up_distance},
-                        left: 0,
-                        behavior: 'smooth'
-                    }});
-                """)
-                time.sleep(random.uniform(0.5, 1.5))
-
-            if random.random() < 0.1:
-                time.sleep(random.uniform(2, 4))
-
+                time.sleep(1)
+        print(f'Страница доскролена, проверяю конфеты {after_scroll_time} секунд')
         while time.time() - start_time < duration + after_scroll_time:
             time.sleep(1)
             self.enhanced_check_buttons()
-
-        
+        print(f'Наличие конфеты проверено')
 
     def enhanced_check_buttons(self):
         self.check_event_ball_buttons()
@@ -187,6 +174,7 @@ class MangaParser:
                     continue
                     
         except Exception as e:
+            print("ball error")
             pass
 
     def check_event_bag_buttons(self):
@@ -246,6 +234,7 @@ class MangaParser:
                     continue
                     
         except Exception as e:
+            print('bag error')
             pass
 
     def check_halloween_buttons(self):
@@ -282,13 +271,16 @@ class MangaParser:
                     continue
                     
         except Exception as e:
+            print('holloween button error')
             pass
 
     def post_comment(self, comment_text="спаисбо за главу"):
         if self.comments_count >= self.max_comments_per_session:
+            print('Написано достаточно комментариев')
             return False
 
         try:
+            print(f'Пишу комментарий "{comment_text}"')
             self.driver.refresh()
             time.sleep(3)
             self.wait_for_page_load()
@@ -324,13 +316,16 @@ class MangaParser:
             time.sleep(1)
 
             self.comments_count += 1
+            print("Комментарий написан")
             return True
 
         except Exception as e:
+            print('comment_error')
             return False
 
     def go_to_mine(self):
         try:
+            print('Отправляюсь в шахту')
             current_url = self.driver.current_url
             
             profile_dropdown = WebDriverWait(self.driver, 10).until(
@@ -347,6 +342,7 @@ class MangaParser:
             self.wait_for_page_load()
 
             hits_left = self.check_mine_hits()
+            print(f'Нужно вскопать еще {hits_left} раз')
             while hits_left > 0:
                 self.click_mine_button()
                 time.sleep(0.5)
@@ -355,9 +351,11 @@ class MangaParser:
             self.driver.get(current_url)
             time.sleep(3)
             self.wait_for_page_load()
+            print('Шахта вскопана')
             return True
 
         except Exception as e:
+            print('mine error')
             return False
 
     def check_mine_hits(self):
@@ -378,6 +376,7 @@ class MangaParser:
 
     def go_to_next_page(self):
         try:
+            print('Перелистываю страницу')
             next_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader__footer a.button--primary:last-child"))
             )
@@ -385,11 +384,13 @@ class MangaParser:
             if "След." in next_button.text:
                 next_url = next_button.get_attribute("href")
                 next_button.click()
+                print('Страница перевернута')
                 return True
             else:
                 return False
                 
         except Exception as e:
+            print('next page error')
             return False
 
     def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу",after_scroll_time=15):
@@ -416,14 +417,12 @@ class MangaParser:
                     break
                 
                 current_url = self.driver.current_url
-                self.save_cookies()
                 time.sleep(3)
                 
         except Exception as e:
             print(f"Error: {e}")
         finally:
-            if self.driver:
-                self.save_cookies()
+            exit
 
     def login_only(self):
         self.setup_driver()
