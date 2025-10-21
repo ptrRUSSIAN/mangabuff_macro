@@ -29,6 +29,11 @@ class MangaParser:
         self.cookies_file = "manga_cookies.json"
         self.comments_count = comments_ready
         self.max_comments_per_session = comments_need
+        
+        # Статистика конфет
+        self.candy_times = []
+        self.candy_count = 0
+        self.pumpkin_count = 0  # счетчик тыкв
 
     def setup_driver(self):
         self.driver = webdriver.Chrome(options=self.chrome_options)
@@ -138,10 +143,36 @@ class MangaParser:
                 self.enhanced_check_buttons()
             print(f'Наличие конфеты проверено')
 
+    def record_candy_found(self, candy_type="candy"):
+        current_time = datetime.now()
+        self.candy_times.append(current_time)
+        
+        if candy_type == "pumpkin":
+            self.pumpkin_count += 1
+            self.candy_count += 3
+            print(f"🎃 Найдена тыква! +3 конфеты (всего конфет: {self.candy_count})")
+        else:
+            self.candy_count += 1
+            print(f"🍬 Найдена конфета! (всего конфет: {self.candy_count})")
+        
+        if len(self.candy_times) > 1:
+            self.print_candy_statistics()
+
+    def print_candy_statistics(self):
+        if len(self.candy_times) < 2:
+            return
+            
+        total_seconds = 0
+        for i in range(1, len(self.candy_times)):
+            time_diff = (self.candy_times[i] - self.candy_times[i-1]).total_seconds()
+            total_seconds += time_diff
+        
+        avg_time = total_seconds / (len(self.candy_times) - 1)
+        print(f"📊 Статистика: найдено {self.candy_count} конфет ({self.pumpkin_count} тыкв), среднее время между конфетами: {avg_time:.1f} сек")
+
     def enhanced_check_buttons(self):
         self.check_event_ball_buttons()
         self.check_event_bag_buttons()
-        self.check_halloween_buttons()
     
     def check_event_ball_buttons(self):
         try:
@@ -150,6 +181,7 @@ class MangaParser:
                 "div[class*='event-gift-ball']"
             ]
             
+            candy_found = False
             for selector in selectors:
                 try:
                     buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
@@ -204,6 +236,10 @@ class MangaParser:
                             self.driver.execute_script(script, button)
                             time.sleep(2)
                             
+                            if not candy_found:
+                                self.record_candy_found("candy")
+                                candy_found = True
+                            
                         except Exception as e:
                             pass
                             
@@ -222,6 +258,7 @@ class MangaParser:
                 ".event-bag"
             ]
             
+            candy_found = False
             for selector in selectors:
                 try:
                     bags = self.driver.find_elements(By.CSS_SELECTOR, selector)
@@ -258,6 +295,11 @@ class MangaParser:
                                     self.driver.execute_script(script, bag, click_count + 1)
                                     time.sleep(0.3)
                                     
+                                    # Записываем найденную конфету
+                                    if not candy_found:
+                                        self.record_candy_found("candy")
+                                        candy_found = True
+                                    
                                 except Exception as e:
                                     pass
                             
@@ -274,42 +316,21 @@ class MangaParser:
             print('bag error')
             pass
 
-    def check_halloween_buttons(self):
+    def check_pumpkin_on_event_page(self):
         try:
-            halloween_selectors = [
-                "[class*='menu__item--halloween']",
-                "[href*='event']",
-                "[href*='halloween']",
-                "a[href='/event/pack']",
-                "a[href='/halloween/game']"
+            pumpkin_selectors = [
+                "[class*='pumpkin']",
+                "[class*='halloween']",
+                ".event-game__item"
             ]
             
-            for selector in halloween_selectors:
-                try:
-                    halloween_buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    
-                    for button in halloween_buttons:
-                        if button.is_displayed() and button.is_enabled():
-                            try:
-                                self.driver.execute_script("arguments[0].click();", button)
-                                time.sleep(3)
-                                self.wait_for_page_load()
-                                
-                                if "mangabuff.ru" in self.driver.current_url and "/manga/" not in self.driver.current_url:
-                                    self.driver.back()
-                                    time.sleep(2)
-                                    self.wait_for_page_load()
-                                
-                                return True
-                                
-                            except Exception as e:
-                                pass
-                except:
-                    continue
-                    
-        except Exception as e:
-            print('holloween button error')
-            pass
+            for selector in pumpkin_selectors:
+                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                if elements:
+                    return True
+            return False
+        except:
+            return False
 
     def post_comment(self, comment_text="спаисбо за главу"):
         if self.comments_count >= self.max_comments_per_session:
@@ -415,19 +436,24 @@ class MangaParser:
         try:
             print('Перелистываю страницу')
             next_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader__footer a.button--primary:last-child"))
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "a.navigate-button i.icon-new-arrow-next"))
             )
             
-            if "След." in next_button.text:
-                next_url = next_button.get_attribute("href")
-                next_button.click()
-                print('Страница перевернута')
-                return True
-            else:
-                return False
+            link = next_button.find_element(By.XPATH, "./..")
+            link.click()
+            print('Страница перевернута')
+            return True
                 
         except Exception as e:
             print('next page error')
+            return False
+
+    def quick_scroll_to_bottom(self):
+        try:
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(1)
+            return True
+        except:
             return False
 
     def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу",after_scroll_time=15, scroll_mode=1):
@@ -437,7 +463,9 @@ class MangaParser:
             mine_flag = False
             
             while True:
-                print(f"Начало цикла - {datetime.now()}")
+                cycle_start_time = datetime.now()
+                print(f"Начало цикла - {cycle_start_time}")
+                print(f"📊 Всего найдено конфет: {self.candy_count} ({self.pumpkin_count} тыкв)")
 
                 self.driver.get(current_url)
                 self.wait_for_page_load()
@@ -453,6 +481,8 @@ class MangaParser:
                 next_page_success = False
                 a = 3
                 for attempt in range(a):
+                    self.quick_scroll_to_bottom()
+                    self.enhanced_check_buttons()
                     if self.go_to_next_page():
                         self.driver.refresh()
                         time.sleep(3)
@@ -470,6 +500,13 @@ class MangaParser:
         except Exception as e:
             print(f"Error: {e}")
         finally:
+            # Выводим финальную статистику
+            if self.candy_count > 0:
+                print(f"🎯 ФИНАЛЬНАЯ СТАТИСТИКА: найдено {self.candy_count} конфет ({self.pumpkin_count} тыкв)")
+                if len(self.candy_times) > 1:
+                    total_seconds = (self.candy_times[-1] - self.candy_times[0]).total_seconds()
+                    avg_time = total_seconds / (len(self.candy_times) - 1)
+                    print(f"📊 Среднее время между конфетами: {avg_time:.1f} сек")
             exit
 
     def login_only(self):
