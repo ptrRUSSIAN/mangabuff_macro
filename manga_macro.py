@@ -8,8 +8,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import random
-from config import start_url, scroll_time, comment_on, comment_text, comments_need,comments_ready,mine_needed, after_scroll_time
-from datetime import date, datetime
+from config import start_url, scroll_time, comment_on, comment_text, comments_need,comments_ready,mine_needed, after_scroll_time, scroll_mode
+from datetime import datetime
+
 class MangaParser:
     def __init__(self, headless=False):
         self.chrome_options = Options()
@@ -60,51 +61,87 @@ class MangaParser:
         time.sleep(timeout)
         print('Страница загружена')
 
-    def smooth_scroll(self, duration, after_scroll_time=15):
-        start_time = time.time()
-        viewport_height = self.driver.execute_script("return window.innerHeight")
-        step_time = 2.0
-
-        scroll_iteration = 0
-        print(f'Скролю страницу {duration} секунд')
-        while time.time() - start_time < duration:
-            scroll_iteration += 1
-
-            current_position = self.driver.execute_script("return window.pageYOffset;")
-            current_total_height = self.driver.execute_script("return document.body.scrollHeight") - 500
-            remaining_height = current_total_height - current_position - viewport_height
-
-            if remaining_height <= 0:
-                break
-
-            time_elapsed = time.time() - start_time
-            time_left = duration - time_elapsed
-
-            if time_left <= 0:
-                break
-
-            current_pixels_per_second = remaining_height / time_left if time_left > 0 else remaining_height
-            scroll_down_distance = current_pixels_per_second * step_time
-            scroll_down_distance = max(100, min(scroll_down_distance, 800))
-
-            if scroll_down_distance > 0:
-                self.driver.execute_script(f"""
-                    window.scrollBy({{
-                        top: {scroll_down_distance},
-                        left: 0,
-                        behavior: 'smooth'
-                    }});
-                """)
+    def smooth_scroll(self, duration=30, after_scroll_time=15, mode=1):
+        if mode == 1:
+            start_time = time.time()
+            
+            print(f'Скролю страницу {duration} секунд')
+            
+            while time.time() - start_time < duration:
+                cycle_start = time.time()
+                
+                self.driver.execute_script("window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});")
+                time.sleep(0.5)
+                self.enhanced_check_buttons()
+                
+                self.driver.execute_script("window.scrollTo({top: 0, behavior: 'smooth'});")
+                time.sleep(0.5)
+                self.enhanced_check_buttons()
+                
+                self.driver.execute_script("window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});")
+                time.sleep(0.5)
+                self.enhanced_check_buttons()
+                
+                cycle_elapsed = time.time() - cycle_start
+                if cycle_elapsed < 5:
+                    time.sleep(5 - cycle_elapsed)
+            
+            print(f'Страница доскролена, проверяю конфеты {after_scroll_time} секунд')
+            
+            final_check_start = time.time()
+            while time.time() - final_check_start < after_scroll_time:
                 time.sleep(1)
-        print(f'Страница доскролена, проверяю конфеты {after_scroll_time} секунд')
-        while time.time() - start_time < duration + after_scroll_time:
-            time.sleep(1)
-            self.enhanced_check_buttons()
-        print(f'Наличие конфеты проверено')
+                self.enhanced_check_buttons()
+            
+            print(f'Наличие конфеты проверено')
+
+        elif mode == 2:
+
+            start_time = time.time()
+            viewport_height = self.driver.execute_script("return window.innerHeight")
+            step_time = 2.0
+
+            scroll_iteration = 0
+            print(f'Скролю страницу {duration} секунд')
+            while time.time() - start_time < duration:
+                scroll_iteration += 1
+
+                current_position = self.driver.execute_script("return window.pageYOffset;")
+                current_total_height = self.driver.execute_script("return document.body.scrollHeight")
+                remaining_height = current_total_height - current_position - viewport_height
+
+                if remaining_height <= 0:
+                    break
+
+                time_elapsed = time.time() - start_time
+                time_left = duration - time_elapsed
+
+                if time_left <= 0:
+                    break
+
+                current_pixels_per_second = remaining_height / time_left if time_left > 0 else remaining_height
+                scroll_down_distance = current_pixels_per_second * step_time
+                scroll_down_distance = max(100, min(scroll_down_distance, 800))
+
+                if scroll_down_distance > 0:
+                    self.driver.execute_script(f"""
+                        window.scrollBy({{
+                            top: {scroll_down_distance},
+                            left: 0,
+                            behavior: 'smooth'
+                        }});
+                    """)
+                    time.sleep(1)
+            print(f'Страница доскролена, проверяю конфеты {after_scroll_time} секунд')
+            while time.time() - start_time < duration + after_scroll_time:
+                time.sleep(1)
+                self.enhanced_check_buttons()
+            print(f'Наличие конфеты проверено')
 
     def enhanced_check_buttons(self):
         self.check_event_ball_buttons()
         self.check_event_bag_buttons()
+        self.check_halloween_buttons()
     
     def check_event_ball_buttons(self):
         try:
@@ -237,6 +274,43 @@ class MangaParser:
             print('bag error')
             pass
 
+    def check_halloween_buttons(self):
+        try:
+            halloween_selectors = [
+                "[class*='menu__item--halloween']",
+                "[href*='event']",
+                "[href*='halloween']",
+                "a[href='/event/pack']",
+                "a[href='/halloween/game']"
+            ]
+            
+            for selector in halloween_selectors:
+                try:
+                    halloween_buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    
+                    for button in halloween_buttons:
+                        if button.is_displayed() and button.is_enabled():
+                            try:
+                                self.driver.execute_script("arguments[0].click();", button)
+                                time.sleep(3)
+                                self.wait_for_page_load()
+                                
+                                if "mangabuff.ru" in self.driver.current_url and "/manga/" not in self.driver.current_url:
+                                    self.driver.back()
+                                    time.sleep(2)
+                                    self.wait_for_page_load()
+                                
+                                return True
+                                
+                            except Exception as e:
+                                pass
+                except:
+                    continue
+                    
+        except Exception as e:
+            print('holloween button error')
+            pass
+
     def post_comment(self, comment_text="спаисбо за главу"):
         if self.comments_count >= self.max_comments_per_session:
             print('Написано достаточно комментариев')
@@ -356,23 +430,14 @@ class MangaParser:
             print('next page error')
             return False
 
-    def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу",after_scroll_time=15):
-
+    def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу",after_scroll_time=15, scroll_mode=1):
         try:
             self.setup_driver()
             current_url = start_url
             mine_flag = False
-            current_day = date.today()                
-
+            
             while True:
-                new_day = date.today()                
-                if current_day != new_day:
-                    print('new day')
-                    mine_flag = False
-                    self.comments_count = 0
-                current_day = new_day
-
-                print('Время открытия главы '+ datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                print(f"Начало цикла - {datetime.now()}")
 
                 self.driver.get(current_url)
                 self.wait_for_page_load()
@@ -382,11 +447,9 @@ class MangaParser:
                     self.post_comment(comment_text)
                 elif  not mine_flag and mine_needed:   
                     mine_flag = self.go_to_mine()
-                else:
-                    pass
                 
-                self.smooth_scroll(scroll_duration,after_scroll_time)
-                
+                self.smooth_scroll(scroll_duration,after_scroll_time, mode=scroll_mode)
+
                 next_page_success = False
                 a = 3
                 for attempt in range(a):
@@ -403,13 +466,7 @@ class MangaParser:
 
                 current_url = self.driver.current_url
                 time.sleep(3)
-
-                if current_day != new_day:
-                    print('new day')
-                    mine_flag = False
-                    self.comments_count = 0
-                current_day = new_day
-
+                
         except Exception as e:
             print(f"Error: {e}")
         finally:
@@ -442,7 +499,8 @@ def main():
             start_url=START_URL,
             scroll_duration=SCROLL_DURATION,
             comment_text=COMMENT_TEXT,
-            after_scroll_time=after_scroll_time
+            after_scroll_time=after_scroll_time,
+            scroll_mode=scroll_mode
         )
     else:
         print("Invalid choice")
