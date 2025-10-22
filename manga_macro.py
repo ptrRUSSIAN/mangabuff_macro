@@ -387,32 +387,32 @@ class MangaParser:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-menu__item--comment"))
             )
             comment_button.click()
-            time.sleep(2)
+            self.wait_fixed_cooldown(2)  
 
             spoiler_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__actions-btn--spoiler"))
             )
             spoiler_button.click()
-            time.sleep(1)
+            self.wait_fixed_cooldown(1)  
 
             comment_textarea = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__send-form textarea"))
             )
             comment_textarea.clear()
             comment_textarea.send_keys(comment_text)
-            time.sleep(1)
+            self.wait_fixed_cooldown(1)  
 
             send_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__send-btn"))
             )
             send_button.click()
-            time.sleep(2)
+            self.wait_fixed_cooldown(2) 
 
             close_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-comments__close"))
             )
             close_button.click()
-            time.sleep(1)
+            self.wait_fixed_cooldown(1) 
 
             self.comments_count += 1
             print("Комментарий написан")
@@ -421,6 +421,7 @@ class MangaParser:
         except Exception as e:
             print('comment_error')
             return False
+
 
     def go_to_mine(self):
         try:
@@ -431,19 +432,19 @@ class MangaParser:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".header-profile.dropdown__trigger"))
             )
             profile_dropdown.click()
-            time.sleep(2)
+            self.wait_fixed_cooldown(2)  
 
             mine_link = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='/mine']"))
             )
             mine_link.click()
-            self.wait_fixed_cooldown(3)
+            self.wait_fixed_cooldown(3) 
 
             hits_left = self.check_mine_hits()
             print(f'Нужно вскопать еще {hits_left} раз')
             while hits_left > 0:
                 self.click_mine_button()
-                time.sleep(0.5)
+                self.wait_fixed_cooldown(0.5)  
                 hits_left = self.check_mine_hits()
 
             self.navigate_with_cooldown(current_url, 3)
@@ -454,13 +455,14 @@ class MangaParser:
             print('mine error')
             return False
 
-    def check_mine_hits(self):
+    def click_mine_button(self):
         try:
-            hits_element = self.driver.find_element(By.CSS_SELECTOR, ".main-mine__game-hits-left")
-            hits_text = hits_element.text.strip()
-            return int(hits_text)
+            mine_button = self.driver.find_element(By.CSS_SELECTOR, ".main-mine__game-tap")
+            mine_button.click()
+            self.wait_fixed_cooldown(0.1)  
+            return True
         except:
-            return 0
+            return False
 
     def click_mine_button(self):
         try:
