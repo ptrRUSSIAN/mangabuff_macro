@@ -1,12 +1,16 @@
-start_url = 'https://mangabuff.ru/manga/boevoi-kontinent/1/110'
+start_url = 'https://mangabuff.ru/manga/boevoi-kontinent/1/245'
 # с этой главы начнется просмотр манги
-scroll_time = 60
+scroll_time = 30
 # за такое время страницу докрутит до самого низа
+# учтите что время за которое проходит одна глава равно:
+# x + y + 17 секунд
+# где х это after_scroll_time
+# а у это scroll_time
 comment_text = 'Гигантсвое Аригато'
 # такой текст будет писаться в комментариях
-after_scroll_time = 20
+after_scroll_time = 30
 # столько секунд программа будет искать конфеты\тыквы после завершения скролинга
-comments_ready = 0
+comments_ready = 13
 # столько комментариев уже написано
 comments_need = 13
 # столько комментариев максимум
