@@ -55,7 +55,7 @@ class MangaParser:
                 json.dump(cookies, f)
         print('Куки файлы сохранены')
 
-    def retry_on_timeout(self, func, max_attempts=3, delay=2, func_name=""):
+    def retry_on_timeout(self, func, max_attempts=3, delay=5, func_name=""):
         for attempt in range(max_attempts):
             try:
                 return func()
@@ -381,39 +381,34 @@ class MangaParser:
 
         try:
             print(f'Пишу комментарий "{comment_text}"')
-            self.refresh_with_cooldown(3) 
+            time.sleep(2)
             
             comment_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-menu__item--comment"))
             )
             comment_button.click()
-            self.wait_fixed_cooldown(2)  
-
+            time.sleep(2)
             spoiler_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__actions-btn--spoiler"))
             )
             spoiler_button.click()
-            self.wait_fixed_cooldown(1)  
-
+            time.sleep(2)
             comment_textarea = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__send-form textarea"))
             )
             comment_textarea.clear()
             comment_textarea.send_keys(comment_text)
-            self.wait_fixed_cooldown(1)  
-
+            time.sleep(2)
             send_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__send-btn"))
             )
             send_button.click()
-            self.wait_fixed_cooldown(2) 
-
+            time.sleep(2)
             close_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-comments__close"))
             )
             close_button.click()
-            self.wait_fixed_cooldown(1) 
-
+            time.sleep(2)
             self.comments_count += 1
             print("Комментарий написан")
             return True
@@ -432,19 +427,17 @@ class MangaParser:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".header-profile.dropdown__trigger"))
             )
             profile_dropdown.click()
-            self.wait_fixed_cooldown(2)  
-
+            time.sleep(2)
             mine_link = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='/mine']"))
             )
             mine_link.click()
-            self.wait_fixed_cooldown(3) 
-
+            time.sleep(3)
             hits_left = self.check_mine_hits()
             print(f'Нужно вскопать еще {hits_left} раз')
             while hits_left > 0:
                 self.click_mine_button()
-                self.wait_fixed_cooldown(0.5)  
+                time.sleep(0.5)                
                 hits_left = self.check_mine_hits()
 
             self.navigate_with_cooldown(current_url, 3)
@@ -459,18 +452,18 @@ class MangaParser:
         try:
             mine_button = self.driver.find_element(By.CSS_SELECTOR, ".main-mine__game-tap")
             mine_button.click()
-            self.wait_fixed_cooldown(0.1)  
+            time.sleep(0.1)  
             return True
         except:
             return False
 
-    def click_mine_button(self):
+    def check_mine_hits(self):
         try:
-            mine_button = self.driver.find_element(By.CSS_SELECTOR, ".main-mine__game-tap")
-            mine_button.click()
-            return True
+            hits_element = self.driver.find_element(By.CSS_SELECTOR, ".main-mine__game-hits-left")
+            hits_text = hits_element.text.strip()
+            return int(hits_text)
         except:
-            return False
+            return 0
 
     def go_to_next_page(self):
         try:
@@ -525,15 +518,10 @@ class MangaParser:
                 self.navigate_with_cooldown(current_url, 5)
                 
                 if self.comments_count < self.max_comments_per_session and comment_on:
-                    self.retry_on_timeout(
-                        lambda: self.post_comment(comment_text),
-                        func_name="написание комментария"
-                    )
+                    self.post_comment(comment_text)
+
                 elif not mine_flag and mine_needed:   
-                    mine_result = self.retry_on_timeout(
-                        lambda: self.go_to_mine(),
-                        func_name="посещение шахты"
-                    )
+                    mine_result = self.go_to_mine()
                     if mine_result is not None:
                         mine_flag = mine_result
 
