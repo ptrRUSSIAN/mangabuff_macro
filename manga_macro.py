@@ -25,19 +25,27 @@ class MangaParser:
         self.chrome_options.add_argument("--no-sandbox")
         self.chrome_options.add_argument("--window-size=1920,1080")
         
+        self.chrome_options.add_argument("--blink-settings=imagesEnabled=true")
+        self.chrome_options.add_experimental_option("prefs", {
+            "profile.managed_default_content_settings.images": 1,
+            "profile.default_content_setting_values.notifications": 2
+        })
+        self.chrome_options.set_capability("pageLoadStrategy", "none")  
+        
         self.driver = None
         self.cookies_file = "manga_cookies.json"
         self.comments_count = comments_ready
         self.max_comments_per_session = comments_need
         
-        # Статистика конфет
         self.candy_times = []
         self.candy_count = 0
-        self.pumpkin_count = 0  # счетчик тыкв
+        self.pumpkin_count = 0
 
     def setup_driver(self):
         self.driver = webdriver.Chrome(options=self.chrome_options)
         self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        self.driver.set_page_load_timeout(1)
+        self.driver.set_script_timeout(10)
         self.load_cookies()
 
     def save_cookies(self): 
@@ -46,6 +54,21 @@ class MangaParser:
             with open(self.cookies_file, 'w') as f:
                 json.dump(cookies, f)
         print('Куки файлы сохранены')
+
+    def retry_on_timeout(self, func, max_attempts=3, delay=2, func_name=""):
+        for attempt in range(max_attempts):
+            try:
+                return func()
+            except Exception as e:
+                if "timed out" in str(e) or "Read timed out" in str(e) or "TimeoutException" in str(e):
+                    print(f"⚠️ Таймаут {func_name} (попытка {attempt + 1}/{max_attempts}): {e}")
+                    if attempt < max_attempts - 1:
+                        time.sleep(delay)
+                        continue
+                else:
+                    raise e
+        print(f"❌ Пропускаем {func_name} после {max_attempts} неудачных попыток")
+        return None
 
     def load_cookies(self):
         print('Выгружаю куки фйлы...')
@@ -61,10 +84,30 @@ class MangaParser:
                 print(f"Error loading cookies: {e}")
         print('Куки файлы загружены')
 
-    def wait_for_page_load(self, timeout=5):
-        print(f'Жду {timeout} сукунд для загрузки страницы')
-        time.sleep(timeout)
-        print('Страница загружена')
+    def wait_fixed_cooldown(self, seconds=5):
+        print(f'Жду {seconds} секунд фиксированного кулдауна')
+        time.sleep(seconds)
+        print('Кулдаун завершен')
+
+    def navigate_with_cooldown(self, url, cooldown=5):
+        try:
+            print(f'Перехожу по URL: {url}')
+            self.driver.set_page_load_timeout(2)
+            self.driver.get(url)
+        except Exception as e:
+            print(f'Игнорируем таймаут загрузки: {e}')
+        finally:
+            self.wait_fixed_cooldown(cooldown)
+
+    def refresh_with_cooldown(self, cooldown=3):
+        try:
+            print('Обновляю страницу')
+            self.driver.set_page_load_timeout(2)
+            self.driver.refresh()
+        except Exception as e:
+            print(f'Игнорируем таймаут обновления: {e}')
+        finally:
+            self.wait_fixed_cooldown(cooldown)
 
     def smooth_scroll(self, duration=30, after_scroll_time=15, mode=1):
         if mode == 1:
@@ -295,7 +338,6 @@ class MangaParser:
                                     self.driver.execute_script(script, bag, click_count + 1)
                                     time.sleep(0.3)
                                     
-                                    # Записываем найденную конфету
                                     if not candy_found:
                                         self.record_candy_found("candy")
                                         candy_found = True
@@ -339,9 +381,8 @@ class MangaParser:
 
         try:
             print(f'Пишу комментарий "{comment_text}"')
-            self.driver.refresh()
-            time.sleep(3)
-            self.wait_for_page_load()
+            self.refresh_with_cooldown(3) 
+            
             comment_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-menu__item--comment"))
             )
@@ -396,8 +437,7 @@ class MangaParser:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='/mine']"))
             )
             mine_link.click()
-            time.sleep(3)
-            self.wait_for_page_load()
+            self.wait_fixed_cooldown(3)
 
             hits_left = self.check_mine_hits()
             print(f'Нужно вскопать еще {hits_left} раз')
@@ -406,9 +446,7 @@ class MangaParser:
                 time.sleep(0.5)
                 hits_left = self.check_mine_hits()
 
-            self.driver.get(current_url)
-            time.sleep(3)
-            self.wait_for_page_load()
+            self.navigate_with_cooldown(current_url, 3)
             print('Шахта вскопана')
             return True
 
@@ -456,36 +494,65 @@ class MangaParser:
         except:
             return False
 
-    def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу",after_scroll_time=15, scroll_mode=1):
+    def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу", after_scroll_time=15, scroll_mode=1):
         try:
             self.setup_driver()
             current_url = start_url
             mine_flag = False
             
+            current_day = datetime.now().day
+            day_changed = False
+
             while True:
+                now = datetime.now()
+                if now.day != current_day:
+                    print("🔄 Обнаружена смена дня! Сбрасываем счетчики...")
+                    current_day = now.day
+                    mine_flag = False 
+                    self.comments_count = 0  
+                    day_changed = True
+
                 cycle_start_time = datetime.now()
                 print(f"Начало цикла - {cycle_start_time}")
                 print(f"📊 Всего найдено конфет: {self.candy_count} ({self.pumpkin_count} тыкв)")
 
-                self.driver.get(current_url)
-                self.wait_for_page_load()
-                time.sleep(3)
+                if day_changed:
+                    print("🎉 Счетчики сброшены для нового дня!")
+                    day_changed = False
+                
+                self.navigate_with_cooldown(current_url, 5)
                 
                 if self.comments_count < self.max_comments_per_session and comment_on:
-                    self.post_comment(comment_text)
-                elif  not mine_flag and mine_needed:   
-                    mine_flag = self.go_to_mine()
-                
-                self.smooth_scroll(scroll_duration,after_scroll_time, mode=scroll_mode)
+                    self.retry_on_timeout(
+                        lambda: self.post_comment(comment_text),
+                        func_name="написание комментария"
+                    )
+                elif not mine_flag and mine_needed:   
+                    mine_result = self.retry_on_timeout(
+                        lambda: self.go_to_mine(),
+                        func_name="посещение шахты"
+                    )
+                    if mine_result is not None:
+                        mine_flag = mine_result
+
+                self.retry_on_timeout(
+                    lambda: self.smooth_scroll(scroll_duration, after_scroll_time, mode=scroll_mode),
+                    func_name="скроллинг страницы"
+                )
 
                 next_page_success = False
                 a = 3
                 for attempt in range(a):
                     self.quick_scroll_to_bottom()
                     self.enhanced_check_buttons()
-                    if self.go_to_next_page():
-                        self.driver.refresh()
-                        time.sleep(3)
+                    
+                    next_result = self.retry_on_timeout(
+                        lambda: self.go_to_next_page(),
+                        func_name="переход на следующую страницу"
+                    )
+                    time.sleep(5)
+                    if next_result:
+                        self.refresh_with_cooldown(3)
                         next_page_success = True
                         break
                     print(f"Не удалось открыть следующую страницу, попытка {attempt + 1}/{a}")
@@ -495,12 +562,11 @@ class MangaParser:
                     break
 
                 current_url = self.driver.current_url
-                time.sleep(3)
+                self.wait_fixed_cooldown(3)
                 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Критическая ошибка: {e}")
         finally:
-            # Выводим финальную статистику
             if self.candy_count > 0:
                 print(f"🎯 ФИНАЛЬНАЯ СТАТИСТИКА: найдено {self.candy_count} конфет ({self.pumpkin_count} тыкв)")
                 if len(self.candy_times) > 1:
