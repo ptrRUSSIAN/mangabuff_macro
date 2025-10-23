@@ -41,6 +41,23 @@ class MangaParser:
         self.candy_count = 0
         self.pumpkin_count = 0
 
+    def update_config_url(self, new_url):
+        try:
+            with open('config.py', 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            for i, line in enumerate(lines):
+                if line.startswith('start_url ='):
+                    lines[i] = f"start_url = '{new_url}'\n"
+                    break
+            
+            with open('config.py', 'w', encoding='utf-8') as f:
+                f.writelines(lines)
+            
+            print(f"✅ Конфиг обновлен: {new_url}")
+        except Exception as e:
+            print(f"❌ Ошибка обновления конфига: {e}")
+
     def setup_driver(self):
         self.driver = webdriver.Chrome(options=self.chrome_options)
         self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
@@ -102,7 +119,7 @@ class MangaParser:
     def refresh_with_cooldown(self, cooldown=3):
         try:
             print('Обновляю страницу')
-            self.driver.set_page_load_timeout(2)
+            self.driver.set_page_load_timeout(cooldown)
             self.driver.refresh()
         except Exception as e:
             print(f'Игнорируем таймаут обновления: {e}')
@@ -381,40 +398,138 @@ class MangaParser:
 
         try:
             print(f'Пишу комментарий "{comment_text}"')
-            time.sleep(2)
+            time.sleep(3)
+            self.refresh_with_cooldown(3)
+            comment_button_selectors = [
+                ".reader-menu__item--comment",
+                "[class*='comment']",
+                ".reader-menu__item i.icon-comment"
+            ]
             
-            comment_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-menu__item--comment"))
-            )
-            comment_button.click()
-            time.sleep(2)
-            spoiler_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__actions-btn--spoiler"))
-            )
-            spoiler_button.click()
-            time.sleep(2)
-            comment_textarea = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__send-form textarea"))
-            )
+            comment_button = None
+            for selector in comment_button_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        if element.is_displayed():
+                            comment_button = element
+                            break
+                    if comment_button:
+                        break
+                except:
+                    continue
+            
+            if not comment_button:
+                print("Не найдена кнопка комментариев")
+                return False
+                
+            self.driver.execute_script("arguments[0].click();", comment_button)
+            time.sleep(3)
+                        
+            spoiler_selectors = [
+                ".comments__actions-btn--spoiler",
+                "[class*='spoiler']",
+                "button[title*='спойлер']"
+            ]
+            
+            spoiler_button = None
+            for selector in spoiler_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        if element.is_displayed():
+                            spoiler_button = element
+                            break
+                    if spoiler_button:
+                        break
+                except:
+                    continue
+            
+            if spoiler_button:
+                self.driver.execute_script("arguments[0].click();", spoiler_button)
+                time.sleep(1)
+            
+            textarea_selectors = [
+                ".comments__send-form textarea",
+                "textarea[placeholder*='комментарий']",
+                "textarea.comments__textarea"
+            ]
+            
+            comment_textarea = None
+            for selector in textarea_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        if element.is_displayed():
+                            comment_textarea = element
+                            break
+                    if comment_textarea:
+                        break
+                except:
+                    continue
+            
+            if not comment_textarea:
+                print("Не найдено поле для комментария")
+                return False
+                
             comment_textarea.clear()
             comment_textarea.send_keys(comment_text)
-            time.sleep(2)
-            send_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments__send-btn"))
-            )
-            send_button.click()
-            time.sleep(2)
-            close_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".reader-comments__close"))
-            )
-            close_button.click()
-            time.sleep(2)
+            time.sleep(1)
+            
+            send_selectors = [
+                ".comments__send-btn",
+                "button[type='submit']",
+                "input[type='submit']",
+                "button:contains('Отправить')"
+            ]
+            
+            send_button = None
+            for selector in send_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        if element.is_displayed() and "отправить" in element.text.lower():
+                            send_button = element
+                            break
+                    if send_button:
+                        break
+                except:
+                    continue
+            
+            if send_button:
+                self.driver.execute_script("arguments[0].click();", send_button)
+                time.sleep(2)
+            
+            close_selectors = [
+                ".reader-comments__close",
+                ".modal__close",
+                "button[aria-label*='close']",
+                "button:contains('Закрыть')"
+            ]
+            
+            close_button = None
+            for selector in close_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        if element.is_displayed():
+                            close_button = element
+                            break
+                    if close_button:
+                        break
+                except:
+                    continue
+            
+            if close_button:
+                self.driver.execute_script("arguments[0].click();", close_button)
+            
             self.comments_count += 1
-            print("Комментарий написан")
+            print(f"✅ Комментарий написан ({self.comments_count}/{self.max_comments_per_session})")
+            time.sleep(2)
             return True
 
         except Exception as e:
-            print('comment_error')
+            print(f'comment_error: {e}')
             return False
 
 
@@ -423,29 +538,83 @@ class MangaParser:
             print('Отправляюсь в шахту')
             current_url = self.driver.current_url
             
-            profile_dropdown = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".header-profile.dropdown__trigger"))
-            )
-            profile_dropdown.click()
+            profile_selectors = [
+                ".header-profile.dropdown__trigger",
+                ".user-avatar",
+                "[class*='profile']",
+                "[class*='dropdown']"
+            ]
+            
+            profile_button = None
+            for selector in profile_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        if element.is_displayed():
+                            profile_button = element
+                            break
+                    if profile_button:
+                        break
+                except:
+                    continue
+            
+            if not profile_button:
+                print("Не найдена кнопка профиля")
+                return False
+                
+            self.driver.execute_script("arguments[0].click();", profile_button)
             time.sleep(2)
-            mine_link = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='/mine']"))
-            )
-            mine_link.click()
+            
+            mine_selectors = [
+                "a[href='/mine']",
+                "a[href*='mine']",
+                "a:contains('Шахта')",
+                "a:contains('шахта')"
+            ]
+            
+            mine_link = None
+            for selector in mine_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        if element.is_displayed() and ("шахт" in element.text.lower() or "mine" in element.text.lower()):
+                            mine_link = element
+                            break
+                    if mine_link:
+                        break
+                except:
+                    continue
+            
+            if not mine_link:
+                print("Не найдена ссылка на шахту")
+                return False
+                
+            self.driver.execute_script("arguments[0].click();", mine_link)
             time.sleep(3)
+            
+            if "mine" not in self.driver.current_url:
+                print("Не удалось перейти на страницу шахты")
+                return False
+            
             hits_left = self.check_mine_hits()
             print(f'Нужно вскопать еще {hits_left} раз')
+            
             while hits_left > 0:
-                self.click_mine_button()
-                time.sleep(0.5)                
-                hits_left = self.check_mine_hits()
+                success = self.click_mine_button()
+                if success:
+                    hits_left -= 1
+                time.sleep(0.5)
+                
+                if hits_left % 5 == 0:
+                    hits_left = self.check_mine_hits()
 
-            self.navigate_with_cooldown(current_url, 3)
             print('Шахта вскопана')
+            
+            self.navigate_with_cooldown(current_url, 3)
             return True
 
         except Exception as e:
-            print('mine error')
+            print(f'mine error: {e}')
             return False
 
     def click_mine_button(self):
@@ -509,7 +678,7 @@ class MangaParser:
 
                 cycle_start_time = datetime.now()
                 print(f"Начало цикла - {cycle_start_time}")
-                print(f"📊 Всего найдено конфет: {self.candy_count} ({self.pumpkin_count} тыкв)")
+                print(f"📊 Всего найдено конфет: {self.candy_count}")
 
                 if day_changed:
                     print("🎉 Счетчики сброшены для нового дня!")
@@ -518,6 +687,7 @@ class MangaParser:
                 self.navigate_with_cooldown(current_url, 5)
                 
                 if self.comments_count < self.max_comments_per_session and comment_on:
+                    self.refresh_with_cooldown(3)
                     self.post_comment(comment_text)
 
                 elif not mine_flag and mine_needed:   
@@ -551,7 +721,11 @@ class MangaParser:
                 if not next_page_success:
                     break
 
-                current_url = self.driver.current_url
+                new_url = self.driver.current_url
+                if new_url != current_url:
+                    self.update_config_url(new_url)
+                    current_url = new_url
+
                 self.wait_fixed_cooldown(3)
                 
         except Exception as e:
