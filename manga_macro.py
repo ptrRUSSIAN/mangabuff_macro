@@ -10,6 +10,8 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import random
 from config import start_url, scroll_time, comment_on, comment_text, comments_need,comments_ready,mine_needed, after_scroll_time, scroll_mode
 from datetime import datetime
+import signal
+import sys
 
 class MangaParser:
     def __init__(self, headless=False):
@@ -40,6 +42,54 @@ class MangaParser:
         self.candy_times = []
         self.candy_count = 0
         self.pumpkin_count = 0
+        self.start_time = None
+        self.end_time = None
+
+        signal.signal(signal.SIGINT, self.signal_handler)
+
+    def signal_handler(self, sig, frame):
+        print("\n\n⚠️ Прерывание")
+        self.print_final_statistics()
+        if self.driver:
+            print("Закрываю браузер...")
+            self.driver.quit()
+        sys.exit(0)
+
+    def print_final_statistics(self):
+        self.end_time = datetime.now()
+        
+        print("\n" + "="*60)
+        print("🎯 ФИНАЛЬНАЯ СТАТИСТИКА")
+        print("="*60)
+        
+        if self.start_time:
+            total_duration = (self.end_time - self.start_time).total_seconds()
+            hours = int(total_duration // 3600)
+            minutes = int((total_duration % 3600) // 60)
+            seconds = int(total_duration % 60)
+            print(f"⏰ Время начала работы: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"⏰ Время окончания работы: {self.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"⏱️ Общее время работы: {hours:02d}:{minutes:02d}:{seconds:02d}")
+        
+        print(f"🍬 Всего найдено конфет: {self.candy_count}")
+        print(f"🎃 Всего найдено тыкв: {self.pumpkin_count}")
+        print(f"💎 Общее количество: {self.candy_count + self.pumpkin_count * 3}")
+        
+        if self.candy_times:
+            last_candy_time = self.candy_times[-1]
+            print(f"🕒 Время последней найденной конфеты: {last_candy_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            if len(self.candy_times) > 1:
+                total_seconds = (self.candy_times[-1] - self.candy_times[0]).total_seconds()
+                avg_time = total_seconds / (len(self.candy_times) - 1)
+                print(f"📊 Среднее время между конфетами: {avg_time:.1f} сек")
+                
+                time_since_last = (self.end_time - last_candy_time).total_seconds()
+                print(f"⏳ Время с последней конфеты: {time_since_last:.1f} сек")
+        else:
+            print("❌ Конфеты не были найдены")
+        
+        print("="*60)
 
     def update_config_url(self, new_url):
         try:
@@ -250,7 +300,7 @@ class MangaParser:
                             class_name = button.get_attribute('class')
                             if 'event-gift-ball--collected' in class_name:
                                 continue
-                                
+
                             self.driver.execute_script("""
                                 var element = arguments[0];
                                 element.style.display = 'block';
@@ -354,9 +404,8 @@ class MangaParser:
                                     
                                     self.driver.execute_script(script, bag, click_count + 1)
                                     time.sleep(0.3)
-                                    
                                     if not candy_found:
-                                        self.record_candy_found("candy")
+                                        self.record_candy_found("pumpkin")
                                         candy_found = True
                                     
                                 except Exception as e:
@@ -660,6 +709,7 @@ class MangaParser:
 
     def parse_manga(self, start_url, scroll_duration=30, comment_text="спаисбо за главу", after_scroll_time=15, scroll_mode=1):
         try:
+            self.start_time = datetime.now()
             self.setup_driver()
             current_url = start_url
             mine_flag = False
@@ -678,7 +728,7 @@ class MangaParser:
 
                 cycle_start_time = datetime.now()
                 print(f"Начало цикла - {cycle_start_time}")
-                print(f"📊 Всего найдено конфет: {self.candy_count}")
+                print(f"📊 Всего найдено конфет: {self.candy_count}, {self.pumpkin_count} 🎃тыкв")
 
                 if day_changed:
                     print("🎉 Счетчики сброшены для нового дня!")
@@ -732,12 +782,9 @@ class MangaParser:
             print(f"Критическая ошибка: {e}")
         finally:
             if self.candy_count > 0:
-                print(f"🎯 ФИНАЛЬНАЯ СТАТИСТИКА: найдено {self.candy_count} конфет ({self.pumpkin_count} тыкв)")
-                if len(self.candy_times) > 1:
-                    total_seconds = (self.candy_times[-1] - self.candy_times[0]).total_seconds()
-                    avg_time = total_seconds / (len(self.candy_times) - 1)
-                    print(f"📊 Среднее время между конфетами: {avg_time:.1f} сек")
-            exit
+                self.print_final_statistics()
+            if self.driver:
+                self.driver.quit()
 
     def login_only(self):
         self.setup_driver()
@@ -747,7 +794,6 @@ class MangaParser:
         self.driver.quit()
 
 def main():
-
     print("1 - Login only")
     print("2 - Full parsing")
     
