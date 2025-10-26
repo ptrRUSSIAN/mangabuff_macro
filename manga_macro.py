@@ -35,7 +35,7 @@ class MangaParser:
         self.chrome_options.set_capability("pageLoadStrategy", "none")  
         
         self.driver = None
-        self.cookies_file = "manga_cookies.json"
+        self.cookies_file = "manga_cookies1.json"
         self.comments_count = comments_ready
         self.max_comments_per_session = comments_need
         
@@ -71,7 +71,7 @@ class MangaParser:
             print(f"⏰ Время окончания работы: {self.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"⏱️ Общее время работы: {hours:02d}:{minutes:02d}:{seconds:02d}")
         
-        print(f"🍬 Всего найдено конфет: {self.candy_count}")
+        print(f"🍬 Всего найдено конфет: {self.candy_count - self.pumpkin_count * 3}")
         print(f"🎃 Всего найдено тыкв: {self.pumpkin_count}")
         print(f"💎 Общее количество: {self.candy_count + self.pumpkin_count * 3}")
         
