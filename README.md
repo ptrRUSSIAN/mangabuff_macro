@@ -28,15 +28,17 @@ venv\Scripts\activate
 # Для Linux/Mac:
 venv/bin/activate
 
+
+# Установка зависимостей и репозитория
 pip install selenium
 
 git clone https://github.com/ptrRUSSIAN/mangabuff_macro.git
 
-Должна скачаться библиотека.
+Должна скачаться библиотека и сам репоиторий.
 
 5. Запустите программу
 Либо сверху на кнопку запуска, либо прописав команду в терминале:
-python manga_macro.py
+python main.py
 
 Выберите 1 для первого входа, затем войдите в ваш аккаунт.
 После этого не закрывайте окно браузера, а просто нажмите ENTER в терминале VS Code.
