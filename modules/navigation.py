@@ -16,8 +16,11 @@ class Navigator:
         for selector in selectors:
             try:
                 elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                print(f"🔍 Selector '{selector}' found {len(elements)} elements")
+                
                 for element in elements:
                     if element.is_displayed():
+                        print(f"✅ Found visible element with selector: {selector}")
                         self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'auto', block: 'center'});", element)
                         time.sleep(1)
                         
@@ -27,10 +30,15 @@ class Navigator:
                             click_target = element
                         
                         if click_target:
+                            print("🖱️ Clicking next page button...")
                             self.driver.execute_script("arguments[0].click();", click_target)
                             time.sleep(3)
                             return True
-            except:
+                    else:
+                        print(f"⏸️ Element found but not visible: {selector}")
+            except Exception as e:
+                print(f"❌ Selenium error with selector '{selector}': {e}")
+                print(f"   Error type: {type(e).__name__}")
                 continue
         
         return False

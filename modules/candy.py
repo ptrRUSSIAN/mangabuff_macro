@@ -1,5 +1,6 @@
 import time
 from selenium.webdriver.common.by import By
+from modules.utils import wait_fixed
 
 class CandyHunter:
     def __init__(self):
@@ -12,6 +13,11 @@ class CandyHunter:
             self._check_bags(after_scroll_time)
         except Exception as e:
             print(f"Candy check error: {e}")
+
+    def _refresh_with_cooldown(self, cooldown: int = 3):
+        print('🔄 Refreshing page')
+        self.driver.refresh()
+        wait_fixed(cooldown)
     
     def _check_balls(self, after_scroll_time: int):
         balls = self.driver.find_elements(By.CSS_SELECTOR, "[class*='event-gift-ball']")
@@ -24,6 +30,7 @@ class CandyHunter:
             if self.stats:
                 self.stats.record_candy("candy")
                 print(f'Ball found timeout on {after_scroll_time} s')
+                self._refresh_with_cooldown(1)
                 time.sleep(after_scroll_time)
             break
     
@@ -40,6 +47,7 @@ class CandyHunter:
             if self.stats:
                 self.stats.record_candy("pumpkin")
                 print(f'Bag found timeout on {after_scroll_time} s')
+                self._refresh_with_cooldown(1)
                 time.sleep(after_scroll_time)
             break
     

@@ -73,6 +73,7 @@ class MangaParser:
         print('🔄 Refreshing page')
         self.driver.refresh()
         wait_fixed(cooldown)
+        
     def parse_manga(self):
         try:
             self.setup()

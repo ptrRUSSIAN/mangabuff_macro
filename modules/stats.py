@@ -48,4 +48,7 @@ class StatsCollector:
         print(f"🍬 Candies: {self.candy_count - self.pumpkin_count * 3}")
         print(f"🎃 Pumpkins: {self.pumpkin_count}")
         print(f"💎 Total: {self.candy_count}")
+        if len(self.candy_times) > 1:
+            total = (self.candy_times[-1] - self.candy_times[0]).total_seconds()
+            print(f"⏱️ avg candy time: {total / (len(self.candy_times) - 1)}")
         print("="*60)

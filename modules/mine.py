@@ -41,7 +41,7 @@ class MineWorker:
         try:
             hits = int(self.driver.find_element(By.CSS_SELECTOR, ".main-mine__game-hits-left").text)
             if hit_log:
-                print(f'Need to do {hit_log} hits')
+                print(f'Need to do {hits} hits')
             return hits
         except:
             return 0
