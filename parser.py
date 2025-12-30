@@ -91,7 +91,13 @@ class MangaParser:
                 
                 print(f"\n{'='*60}")
                 print(f"📖 Processing: {current_url}")
-                print(f"📊 Stats: {self.stats.candy_count} candies, {self.stats.pumpkin_count} pumpkins")
+                if len(self.stats.candy_times) > 1:
+                    total = (self.stats.candy_times[-1] - self.stats.candy_times[0]).total_seconds()
+                    avg = total / (len(self.stats.candy_times) - 1)
+                    print(f"📊 Stats: {self.stats.candy_count} candies, {self.stats.pumpkin_count} pumpkins, avg time to find {avg:.1f}")
+                else:
+                    print(f"📊 Stats: {self.stats.candy_count} candies, {self.stats.pumpkin_count} pumpkins")
+
                 print(f"{'='*60}")
 
                 self._navigate_with_cooldown(current_url, 5)
